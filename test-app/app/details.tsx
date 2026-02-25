@@ -59,6 +59,9 @@ export default function DetailsScreen() {
               { borderColor: item.color },
               selected === item.id && { backgroundColor: item.color + "20" },
             ]}
+            tapScreen="DetailsScreen"
+            trackingLabel={item.label}
+            trackingCategory="selection"
             onPress={() => setSelected(item.id)}
           >
             <View
@@ -87,6 +90,9 @@ export default function DetailsScreen() {
                 styles.likeButton,
                 likedRows[row.id] && styles.likeButtonActive,
               ]}
+              tapScreen="DetailsScreen"
+              trackingLabel={`Like ${row.title}`}
+              trackingCategory="engagement"
               onPress={() =>
                 setLikedRows((prev) => ({
                   ...prev,
@@ -109,6 +115,9 @@ export default function DetailsScreen() {
 
       <TrackedPressable
         style={styles.backButton}
+        tapScreen="DetailsScreen"
+        trackingLabel="Back to Home"
+        trackingCategory="navigation"
         onPress={() => router.back()}
       >
         <Text style={styles.backText}>← Back to Home</Text>
@@ -116,6 +125,9 @@ export default function DetailsScreen() {
 
       <TrackedPressable
         style={styles.flushButton}
+        tapScreen="DetailsScreen"
+        trackingLabel="Force Upload"
+        trackingCategory="debug"
         onPress={() => manager.flush()}
       >
         <Text style={styles.flushText}>Force Upload Frames</Text>

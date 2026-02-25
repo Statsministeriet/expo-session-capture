@@ -2,3 +2,4 @@ node_modules/
 dist/
 *.tsbuildinfo
 server/sessions/*.json
+.DS_Store

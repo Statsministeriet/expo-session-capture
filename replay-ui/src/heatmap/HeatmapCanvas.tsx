@@ -5,9 +5,10 @@ interface HeatmapCanvasProps {
   points: HeatmapPoint[]
   width: number
   height: number
+  style?: React.CSSProperties
 }
 
-export function HeatmapCanvas({ points, width, height }: HeatmapCanvasProps) {
+export function HeatmapCanvas({ points, width, height, style }: HeatmapCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
 
   useEffect(() => {
@@ -34,5 +35,5 @@ export function HeatmapCanvas({ points, width, height }: HeatmapCanvasProps) {
     })
   }, [points, width, height])
 
-  return <canvas ref={canvasRef} width={width} height={height} />
+  return <canvas ref={canvasRef} width={width} height={height} style={style} />
 }

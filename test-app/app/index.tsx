@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Link } from "expo-router";
 import { TrackedPressable, useSessionCapture } from "expo-session-capture";
 
 export default function HomeScreen() {
   const [count, setCount] = useState(0);
+  const [autoCount, setAutoCount] = useState(0);
   const { isActive, manager } = useSessionCapture();
 
   return (
@@ -20,8 +21,15 @@ export default function HomeScreen() {
         </Text>
       </View>
 
+      {/* ── Explicit: TrackedPressable with enriched data ──────── */}
+      <Text style={styles.sectionLabel}>Explicit (TrackedPressable)</Text>
+
       <TrackedPressable
         style={styles.button}
+        tapScreen="HomeScreen"
+        trackingLabel="Tap counter"
+        trackingCategory="engagement"
+        trackingMetadata={{ currentCount: count }}
         onPress={() => setCount((c) => c + 1)}
       >
         <Text style={styles.buttonText}>Tap me ({count})</Text>
@@ -29,13 +37,41 @@ export default function HomeScreen() {
 
       <TrackedPressable
         style={[styles.button, styles.buttonSecondary]}
+        tapScreen="HomeScreen"
+        trackingLabel="Reset counter"
+        trackingCategory="engagement"
         onPress={() => setCount(0)}
       >
         <Text style={styles.buttonTextSecondary}>Reset counter</Text>
       </TrackedPressable>
 
+      {/* ── Auto: Regular Pressable captured globally ──────────── */}
+      <Text style={styles.sectionLabel}>Auto (global capture)</Text>
+
+      <Pressable
+        style={[styles.button, styles.buttonAuto]}
+        accessibilityLabel="Auto tap button"
+        onPress={() => setAutoCount((c) => c + 1)}
+      >
+        <Text style={styles.buttonText}>Auto-tracked ({autoCount})</Text>
+      </Pressable>
+
+      <Pressable
+        style={[styles.button, styles.buttonAuto]}
+        testID="no-label-button"
+        onPress={() => setAutoCount(0)}
+      >
+        <Text style={styles.buttonText}>Reset auto (testID only)</Text>
+      </Pressable>
+
+      {/* ── Navigation ─────────────────────────────────────────── */}
       <Link href="/details" asChild>
-        <TrackedPressable style={[styles.button, styles.buttonOutline]}>
+        <TrackedPressable
+          style={[styles.button, styles.buttonOutline]}
+          tapScreen="HomeScreen"
+          trackingLabel="Open Scroll Demo"
+          trackingCategory="navigation"
+        >
           <Text style={styles.buttonTextOutline}>Open Scroll Demo →</Text>
         </TrackedPressable>
       </Link>
@@ -96,6 +132,18 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 16,
     fontWeight: "600",
+  },
+  buttonAuto: {
+    backgroundColor: "#34a853",
+  },
+  sectionLabel: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#888",
+    textTransform: "uppercase",
+    letterSpacing: 1,
+    marginTop: 16,
+    marginBottom: 8,
   },
   buttonOutline: {
     backgroundColor: "transparent",

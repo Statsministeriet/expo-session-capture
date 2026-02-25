@@ -18,6 +18,10 @@ export { shouldSample } from './sampler';
 
 export { CaptureManager } from './captureManager';
 
+export { installGlobalPressCapture } from './globalPressCapture';
+
+export { emitTrackingEvent, onTrackingEvent } from './trackingBus';
+
 export type {
   SessionCaptureConfig,
   CapturedFrame,
@@ -26,4 +30,5 @@ export type {
   DeviceInfo,
   UploadPayload,
   CaptureContextValue,
+  TrackingEvent,
 } from './types';

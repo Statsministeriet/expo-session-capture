@@ -9,7 +9,9 @@ import Constants from 'expo-constants';
 import * as Device from 'expo-device';
 import { CaptureManager } from './captureManager';
 import { shouldSample } from './sampler';
-import type { CaptureContextValue, SessionCaptureConfig } from './types';
+import { installGlobalPressCapture } from './globalPressCapture';
+import { onTrackingEvent } from './trackingBus';
+import type { CaptureContextValue, SessionCaptureConfig, TrackingEvent } from './types';
 
 // ── Context ───────────────────────────────────────────────────────────
 
@@ -44,6 +46,16 @@ function getAppVersion(): string {
 
 export interface SessionCaptureProviderProps extends SessionCaptureConfig {
   children: React.ReactNode;
+
+  /**
+   * When `true` (default), all `Pressable` / `TouchableOpacity` /
+   * `TouchableHighlight` presses are captured automatically via a
+   * global `React.createElement` patch.  `TrackedPressable` events
+   * are never duplicated.
+   *
+   * @default true
+   */
+  enableGlobalPressCapture?: boolean;
 }
 
 export function SessionCaptureProvider({
@@ -57,9 +69,18 @@ export function SessionCaptureProvider({
   imageWidth = Dimensions.get('window').width,
   imageHeight = Dimensions.get('window').height,
   uploadHeaders,
+  enableGlobalPressCapture = true,
 }: SessionCaptureProviderProps) {
   const rootRef = useRef<View>(null);
   const sessionId = useMemo(() => uuid(), []);
+
+  // ── Install global press capture (once, synchronously) ─────────────
+  useMemo(() => {
+    if (enableGlobalPressCapture) {
+      installGlobalPressCapture();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const isActive = useMemo(
     () => shouldSample(userId, samplingRate),
@@ -97,6 +118,28 @@ export function SessionCaptureProvider({
     if (isActive) manager.start();
     return () => manager.stop();
   }, [isActive, manager]);
+
+  // ── Bridge tracking bus → CaptureManager ──────────────────────────
+  useEffect(() => {
+    const unsubscribe = onTrackingEvent((event: TrackingEvent) => {
+      if (!event.coordinates) return;
+
+      manager.registerTap({
+        x: event.coordinates.x,
+        y: event.coordinates.y,
+        timestamp: event.timestamp,
+        screen: event.screen,
+        label: event.label,
+        category: event.category,
+        source: event.source,
+      });
+
+      // Fire-and-forget screenshot – never block the UI.
+      manager.capture(rootRef).catch(() => {});
+    });
+
+    return unsubscribe;
+  }, [manager, rootRef]);
 
   // Flush on background / inactive.
   useEffect(() => {

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, useRef, useCallback } from 'react'
 import { buildHeatmap } from './heatmap/HeatmapEngine'
 import { HeatmapCanvas } from './heatmap/HeatmapCanvas'
+import { HeatmapLegend } from './heatmap/HeatmapLegend.jsx'
 
 const API = 'http://localhost:3001'
 const REPLAY_WIDTH = 360
@@ -389,9 +390,12 @@ export default function App() {
             {!selectedScreen || !selectedVersion ? (
               <p style={styles.placeholder}>No heatmap data with screen/version yet.</p>
             ) : (
-              <div style={styles.heatmapCanvasWrap}>
-                <HeatmapCanvas points={heatmapPoints} width={360} height={640} />
-              </div>
+              <>
+                <div style={styles.heatmapCanvasWrap}>
+                  <HeatmapCanvas points={heatmapPoints} width={360} height={640} />
+                </div>
+                <HeatmapLegend pointsCount={heatmapPoints.length} />
+              </>
             )}
           </>
         ) : !current ? (

@@ -70,7 +70,20 @@ export class CaptureManager {
 
   registerTap(tap: TapEvent): void {
     if (!this.isActive) return;
-    this.taps.push(tap);
+
+    const hasNormalizedCoordinates =
+      typeof tap.normalizedX === 'number' && typeof tap.normalizedY === 'number';
+
+    if (hasNormalizedCoordinates || !this.deviceInfo) {
+      this.taps.push(tap);
+      return;
+    }
+
+    this.taps.push({
+      ...tap,
+      normalizedX: tap.x / this.deviceInfo.deviceWidth,
+      normalizedY: tap.y / this.deviceInfo.deviceHeight,
+    });
   }
 
   registerScroll(scroll: ScrollEvent): void {

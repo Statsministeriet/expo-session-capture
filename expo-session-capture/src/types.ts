@@ -66,6 +66,36 @@ export interface TapEvent {
   x: number;
   y: number;
   timestamp: number;
+  normalizedX?: number;
+  normalizedY?: number;
+  screen?: string;
+  /** Human-readable label (from TrackedPressable or accessibilityLabel). */
+  label?: string;
+  /** Logical category (e.g. "conversion", "navigation"). */
+  category?: string;
+  /** Whether this tap was recorded automatically or via TrackedPressable. */
+  source?: 'auto' | 'explicit';
+}
+
+// ── Tracking event (central bus) ────────────────────────────────────────
+
+export interface TrackingEvent {
+  type: 'press';
+  timestamp: number;
+  /** Human-readable label – inferred from accessibilityLabel or set explicitly. */
+  label?: string;
+  /** Logical category (e.g. "conversion", "navigation"). */
+  category?: string;
+  /** Arbitrary extra data attached via TrackedPressable. */
+  metadata?: Record<string, unknown>;
+  /** `auto` = captured by global press capture, `explicit` = via TrackedPressable. */
+  source: 'auto' | 'explicit';
+  /** Component display name (auto-capture only). */
+  componentName?: string;
+  /** Tap coordinates in page space. */
+  coordinates?: { x: number; y: number };
+  /** Screen / route name. */
+  screen?: string;
 }
 
 export interface ScrollEvent {
