@@ -29,6 +29,10 @@ app.post('/session-upload', (req, res) => {
     try {
       const existing = JSON.parse(fs.readFileSync(filePath, 'utf-8'))
       existing.frames = [...(existing.frames || []), ...(session.frames || [])]
+      existing.taps = [...(existing.taps || []), ...(session.taps || [])]
+      existing.scrolls = [...(existing.scrolls || []), ...(session.scrolls || [])]
+      existing.deviceWidth = session.deviceWidth || existing.deviceWidth
+      existing.deviceHeight = session.deviceHeight || existing.deviceHeight
       fs.writeFileSync(filePath, JSON.stringify(existing, null, 2))
     } catch {
       fs.writeFileSync(filePath, JSON.stringify(session, null, 2))
@@ -38,7 +42,7 @@ app.post('/session-upload', (req, res) => {
   }
 
   console.log(
-    `[${new Date().toISOString()}] Saved session ${session.sessionId} — ${(session.frames || []).length} frames`
+    `[${new Date().toISOString()}] Saved session ${session.sessionId} — ${(session.frames || []).length} frames, ${(session.taps || []).length} taps, ${(session.scrolls || []).length} scrolls`
   )
 
   res.json({ ok: true })
@@ -59,6 +63,8 @@ app.get('/sessions', (req, res) => {
         appVersion: data.appVersion || '—',
         userId: data.userId || '—',
         frameCount: (data.frames || []).length,
+        tapCount: (data.taps || []).length,
+        scrollCount: (data.scrolls || []).length,
       }
     } catch {
       return { id: file.replace('.json', ''), frameCount: 0 }

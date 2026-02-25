@@ -52,6 +52,25 @@ import { TrackedPressable } from 'expo-session-capture';
 
 **That's it.** No other integration needed.
 
+### 3. Use `TrackedScrollView` for scroll-aware captures
+
+Use `TrackedScrollView` where you want scroll-position changes represented in replay.
+It tracks offset during scroll, but only attempts capture when scrolling ends:
+
+- `onMomentumScrollEnd` (primary)
+- `onScrollEndDrag` (fallback)
+
+```tsx
+import { TrackedScrollView } from 'expo-session-capture';
+
+<TrackedScrollView scrollThreshold={200}>
+  {content}
+</TrackedScrollView>
+```
+
+`scrollThreshold` defaults to `200` (pixels, vertical `contentOffset.y` delta).
+Small scroll movements below the threshold are ignored.
+
 ---
 
 ## Props
@@ -73,6 +92,15 @@ import { TrackedPressable } from 'expo-session-capture';
 ### `TrackedPressable`
 
 Drop-in replacement for React Native's `<Pressable>`. Same props, same behaviour – plus automatic screenshot on press.
+
+### `TrackedScrollView`
+
+Drop-in replacement for React Native's `<ScrollView>`.
+
+- Never captures in `onScroll`
+- Only attempts capture on scroll end callbacks
+- Only attempts capture if vertical offset delta exceeds `scrollThreshold`
+- Still respects manager sampling, throttle, active state, and max frame cap
 
 ---
 

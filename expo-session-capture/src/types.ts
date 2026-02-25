@@ -62,6 +62,22 @@ export interface CapturedFrame {
   image: string;
 }
 
+export interface TapEvent {
+  x: number;
+  y: number;
+  timestamp: number;
+}
+
+export interface ScrollEvent {
+  offsetY: number;
+  timestamp: number;
+}
+
+export interface DeviceInfo {
+  deviceWidth: number;
+  deviceHeight: number;
+}
+
 // ── Upload payload ──────────────────────────────────────────────────────
 
 export interface UploadPayload {
@@ -69,7 +85,11 @@ export interface UploadPayload {
   userId: string;
   device: string;
   appVersion: string;
+  deviceWidth?: number;
+  deviceHeight?: number;
   frames: CapturedFrame[];
+  taps: TapEvent[];
+  scrolls: ScrollEvent[];
 }
 
 // ── Context value ───────────────────────────────────────────────────────

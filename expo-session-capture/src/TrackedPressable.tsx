@@ -19,6 +19,14 @@ export function TrackedPressable({
   const { manager, rootRef } = useSessionCapture();
 
   const handlePress = async (e: GestureResponderEvent) => {
+    const { pageX, pageY } = e.nativeEvent;
+
+    manager.registerTap({
+      x: pageX,
+      y: pageY,
+      timestamp: Date.now(),
+    });
+
     // Fire-and-forget – never block the UI.
     manager.capture(rootRef).catch(() => {});
 

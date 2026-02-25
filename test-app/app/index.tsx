@@ -36,7 +36,7 @@ export default function HomeScreen() {
 
       <Link href="/details" asChild>
         <TrackedPressable style={[styles.button, styles.buttonOutline]}>
-          <Text style={styles.buttonTextOutline}>Go to Details →</Text>
+          <Text style={styles.buttonTextOutline}>Open Scroll Demo →</Text>
         </TrackedPressable>
       </Link>
     </View>

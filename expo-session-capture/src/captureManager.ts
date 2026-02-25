@@ -1,7 +1,13 @@
 import { captureRef } from 'react-native-view-shot';
 import type { RefObject } from 'react';
 import type { View } from 'react-native';
-import type { CapturedFrame, UploadPayload } from './types';
+import type {
+  CapturedFrame,
+  DeviceInfo,
+  ScrollEvent,
+  TapEvent,
+  UploadPayload,
+} from './types';
 
 export interface CaptureManagerOptions {
   sessionId: string;
@@ -25,6 +31,9 @@ export class CaptureManager {
   private frameCount = 0;
   private lastCaptureTs = 0;
   private frames: CapturedFrame[] = [];
+  private taps: TapEvent[] = [];
+  private scrolls: ScrollEvent[] = [];
+  private deviceInfo: DeviceInfo | null = null;
   private isActive = false;
   private isFlushing = false;
 
@@ -51,6 +60,22 @@ export class CaptureManager {
   /** Number of frames captured so far. */
   get capturedFrames(): number {
     return this.frameCount;
+  }
+
+  // ── Structured events ──────────────────────────────────────────────
+
+  setDeviceInfo(deviceInfo: DeviceInfo): void {
+    this.deviceInfo = deviceInfo;
+  }
+
+  registerTap(tap: TapEvent): void {
+    if (!this.isActive) return;
+    this.taps.push(tap);
+  }
+
+  registerScroll(scroll: ScrollEvent): void {
+    if (!this.isActive) return;
+    this.scrolls.push(scroll);
   }
 
   // ── Capture ─────────────────────────────────────────────────────────
@@ -100,7 +125,13 @@ export class CaptureManager {
 
   /** Batch-upload buffered frames to the configured endpoint. */
   async flush(): Promise<void> {
-    if (this.frames.length === 0) return;
+    if (
+      this.frames.length === 0 &&
+      this.taps.length === 0 &&
+      this.scrolls.length === 0
+    ) {
+      return;
+    }
     if (this.isFlushing) return;
 
     this.isFlushing = true;
@@ -110,11 +141,17 @@ export class CaptureManager {
       userId: this.opts.userId,
       device: this.opts.device,
       appVersion: this.opts.appVersion,
+      deviceWidth: this.deviceInfo?.deviceWidth,
+      deviceHeight: this.deviceInfo?.deviceHeight,
       frames: [...this.frames],
+      taps: [...this.taps],
+      scrolls: [...this.scrolls],
     };
 
     // Clear local buffer immediately so new captures aren't lost during upload.
     this.frames = [];
+    this.taps = [];
+    this.scrolls = [];
 
     try {
       await fetch(this.opts.uploadUrl, {

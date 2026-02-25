@@ -88,6 +88,12 @@ export function SessionCaptureProvider({
 
   // Activate if this user is sampled.
   useEffect(() => {
+    const { width, height } = Dimensions.get('window');
+    manager.setDeviceInfo({
+      deviceWidth: width,
+      deviceHeight: height,
+    });
+
     if (isActive) manager.start();
     return () => manager.stop();
   }, [isActive, manager]);
