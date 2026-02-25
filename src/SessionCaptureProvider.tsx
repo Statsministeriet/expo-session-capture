@@ -134,6 +134,9 @@ export function SessionCaptureProvider({
   const sessionId = useMemo(() => uuid(), []);
 
   // ── Anonymous / identified user ID ─────────────────────────────────
+  // Sessions start with an anonymous UUID. When `identify()` is called
+  // (e.g. after login), the ID switches to the real user and all
+  // subsequent uploads carry the identified ID.
   const anonymousId = useMemo(() => `anon-${uuid()}`, []);
   const [currentUserId, setCurrentUserId] = useState<string>(
     userId ?? anonymousId,
@@ -149,6 +152,10 @@ export function SessionCaptureProvider({
   }, [userId]);
 
   // ── Install global press capture (once, synchronously) ─────────────
+  // Patches `React.createElement` to auto-intercept `onPress` on all
+  // pressable components (Pressable, TouchableOpacity, TouchableHighlight).
+  // Handlers created by `<TrackedPressable>` are skipped to avoid
+  // duplicate events.  Safe to call multiple times — only patches once.
   useMemo(() => {
     if (enableGlobalPressCapture) {
       installGlobalPressCapture();
@@ -212,6 +219,17 @@ export function SessionCaptureProvider({
   }, [isActive, manager]);
 
   // ── Bridge tracking bus → CaptureManager ──────────────────────────
+  // All tracking events (presses, navigations) flow through a central
+  // event bus (`trackingBus.ts`).  This effect subscribes to the bus
+  // and routes events to the CaptureManager:
+  //
+  //   • Navigation events → screenshot before + after transition,
+  //     plus a `registerNavigation()` call.
+  //   • Press events     → `registerTap()` + immediate screenshot
+  //     + follow-up screenshot ~300 ms later to capture the result.
+  //
+  // All capture calls are fire-and-forget (.catch(() => {})) so they
+  // never crash the host app.
   useEffect(() => {
     const unsubscribe = onTrackingEvent((event: TrackingEvent) => {
       if (event.type === 'navigation') {
@@ -261,7 +279,10 @@ export function SessionCaptureProvider({
     return unsubscribe;
   }, [manager, rootRef]);
 
-  // Flush on background / inactive.
+  // ── Flush on background / inactive ─────────────────────────────────
+  // When the app moves to background or becomes inactive (e.g. the user
+  // switches apps), flush all buffered data immediately so no frames
+  // are lost if the OS kills the process.
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (state) => {
       if (state !== 'active') {
@@ -273,6 +294,9 @@ export function SessionCaptureProvider({
   }, [manager]);
 
   // ── Identify API ───────────────────────────────────────────────────
+  // Allows child components to call `identify('user-42')` to link the
+  // current anonymous session to a real user.  The new ID is propagated
+  // to the CaptureManager so all subsequent uploads carry it.
   const identify = useCallback(
     (newUserId: string) => {
       setCurrentUserId(newUserId);

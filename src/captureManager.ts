@@ -10,6 +10,14 @@ import type {
   UploadPayload,
 } from './types';
 
+/**
+ * Configuration options for the {@link CaptureManager}.
+ *
+ * Typically constructed internally by `<SessionCaptureProvider>` from
+ * the provider props — not set directly by consumers.
+ *
+ * @internal
+ */
 export interface CaptureManagerOptions {
   sessionId: string;
   userId: string;
@@ -28,8 +36,26 @@ export interface CaptureManagerOptions {
 }
 
 /**
- * Manages throttled screenshot capture, enforces a hard frame cap,
- * buffers frames, and batch-uploads them to the backend.
+ * Core engine for Expo Session Capture.
+ *
+ * Manages the full capture lifecycle:
+ *
+ * 1. **Throttled screenshots** via `react-native-view-shot`, respecting
+ *    `throttleMs` and a hard `maxFrames` cap.
+ * 2. **Event buffering** — tap, scroll, and navigation events are
+ *    accumulated in memory between flushes.
+ * 3. **Periodic flush** — uploads buffered data to
+ *    `{endpointUrl}/ingest` every `flushIntervalMs`.
+ * 4. **Periodic background capture** — takes a screenshot every
+ *    `periodicCaptureMs`, pausing when idle (`idleTimeoutMs`).
+ * 5. **Non-blocking** — all capture and upload operations are
+ *    fire-and-forget; errors are silently swallowed so the SDK
+ *    **never** crashes the host app.
+ *
+ * Accessed via `useSessionCapture().manager` in consumer code.
+ *
+ * @see SessionCaptureProvider — creates and manages this instance.
+ * @see useSessionCapture — hook to access the manager from child components.
  */
 export class CaptureManager {
   private frameCount = 0;
@@ -64,7 +90,7 @@ export class CaptureManager {
 
   // ── Lifecycle ───────────────────────────────────────────────────────
 
-  /** Activate capturing and start periodic flush timer. */
+  /** Activate capturing and start the periodic flush timer. */
   start(): void {
     this.isActive = true;
     this.lastInteractionTs = Date.now();
@@ -74,6 +100,11 @@ export class CaptureManager {
 
   /**
    * Start periodic background screenshot capture.
+   *
+   * A screenshot is taken every `periodicCaptureMs` as long as the
+   * user is not idle.  Pauses automatically after `idleTimeoutMs`
+   * of inactivity and resumes on the next interaction.
+   *
    * Must be called after `start()` with the root View ref.
    */
   startPeriodicCapture(ref: RefObject<View | null>): void {
@@ -95,7 +126,10 @@ export class CaptureManager {
     }
   }
 
-  /** Deactivate, stop periodic flush, and flush remaining data. */
+  /**
+   * Deactivate capturing, stop all timers, and flush remaining
+   * buffered data to the backend.
+   */
   stop(): void {
     this.isActive = false;
     this.stopPeriodicFlush();
@@ -109,7 +143,11 @@ export class CaptureManager {
     return this.isActive;
   }
 
-  /** Number of frames captured so far. */
+  /**
+   * Number of screenshot frames captured so far in this session.
+   *
+   * Stops incrementing once `maxFrames` is reached.
+   */
   get capturedFrames(): number {
     return this.frameCount;
   }
@@ -132,10 +170,18 @@ export class CaptureManager {
 
   // ── Structured events ──────────────────────────────────────────────
 
+  /** Set the device dimensions, used to compute normalised tap coordinates. */
   setDeviceInfo(deviceInfo: DeviceInfo): void {
     this.deviceInfo = deviceInfo;
   }
 
+  /**
+   * Buffer a tap event.
+   *
+   * If raw page-space coordinates are provided without normalised
+   * values, they are automatically normalised using the device
+   * dimensions (if available).
+   */
   registerTap(tap: TapEvent): void {
     if (!this.isActive) return;
     this.notifyInteraction();
@@ -155,12 +201,14 @@ export class CaptureManager {
     });
   }
 
+  /** Buffer a scroll event with the current vertical offset. */
   registerScroll(scroll: ScrollEvent): void {
     if (!this.isActive) return;
     this.notifyInteraction();
     this.scrolls.push(scroll);
   }
 
+  /** Buffer a navigation event (screen transition). */
   registerNavigation(nav: NavigationEvent): void {
     if (!this.isActive) return;
     this.notifyInteraction();
@@ -206,12 +254,13 @@ export class CaptureManager {
   // ── Capture ─────────────────────────────────────────────────────────
 
   /**
-   * Take a screenshot of the referenced View.
+   * Take a screenshot of the root `<View>` ref.
    *
    * Respects:
-   * - Active state
-   * - Hard frame cap
-   * - Throttle interval
+   * - **Active state** — no-op if capture is not running.
+   * - **Hard frame cap** — stops and flushes if `maxFrames` reached.
+   * - **Throttle** — skips if called within `throttleMs` of the last
+   *   capture (use `captureImmediate()` to bypass).
    */
   async capture(ref: RefObject<View | null>): Promise<void> {
     if (!this.isActive) return;
@@ -228,8 +277,11 @@ export class CaptureManager {
   }
 
   /**
-   * Take a screenshot immediately, bypassing the throttle.
-   * Still respects active state and hard frame cap.
+   * Take a screenshot immediately, **bypassing the throttle**.
+   *
+   * Used for navigation events where capturing both the departure and
+   * arrival screens is important.  Still respects active state and
+   * the hard frame cap.
    */
   async captureImmediate(ref: RefObject<View | null>): Promise<void> {
     if (!this.isActive) return;
@@ -266,7 +318,13 @@ export class CaptureManager {
 
   // ── Upload ──────────────────────────────────────────────────────────
 
-  /** Batch-upload buffered frames to the configured endpoint. */
+  /**
+   * Batch-upload all buffered data to `{endpointUrl}/ingest`.
+   *
+   * The local buffer is cleared immediately so new captures during
+   * upload are not lost.  If the upload fails, the frames are
+   * discarded (non-blocking / fire-and-forget).
+   */
   async flush(): Promise<void> {
     if (
       this.frames.length === 0 &&

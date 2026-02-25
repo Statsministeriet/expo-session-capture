@@ -6,7 +6,7 @@ import type { NavigationEvent } from './types';
 
 /**
  * Walk a nested React Navigation state tree to find the deepest
- * active route name.
+ * active route name.  Used to determine the current screen.
  */
 function getActiveRouteName(state: any): string | undefined {
   if (!state || !state.routes) return undefined;
@@ -16,6 +16,20 @@ function getActiveRouteName(state: any): string | undefined {
   return route.name;
 }
 
+/**
+ * Infer how a navigation was triggered based on the dispatched action
+ * and the change in route depth.
+ *
+ * | Action type     | Inferred trigger |
+ * |-----------------|------------------|
+ * | `GO_BACK`/`POP` | `back-button`    |
+ * | `PUSH`          | `push`           |
+ * | `NAVIGATE`      | `push`           |
+ * | `REPLACE`       | `replace`        |
+ * | `POP_TO_TOP`    | `pop`            |
+ * | *(none, depth↓)*| `swipe-back`     |
+ * | *(unknown)*     | `unknown`        |
+ */
 function inferNavigationTrigger(
   action: { type?: string; payload?: Record<string, unknown> } | undefined,
   prevScreen: string | undefined,
@@ -44,6 +58,12 @@ function inferNavigationTrigger(
   return 'unknown';
 }
 
+/**
+ * Build a human-readable label for a navigation event.
+ *
+ * @example `"Navigate: HomeScreen → DetailsScreen"`
+ * @example `"Swipe back: DetailsScreen → HomeScreen"`
+ */
 function buildLabel(
   trigger: NavigationEvent['trigger'],
   from: string | undefined,
@@ -74,13 +94,17 @@ function getRouteDepth(state: any): number {
 
 // ── Component ────────────────────────────────────────────────────────
 
+/**
+ * Props for `<NavigationTracker>`.
+ */
 export interface NavigationTrackerProps {
   /**
-   * A React Navigation `NavigationContainerRef` (the ref returned by
-   * `useNavigationContainerRef()` from expo-router, or the `ref` prop
-   * on `<NavigationContainer>`).
+   * A React Navigation `NavigationContainerRef`.
    *
-   * If omitted the component will try to import
+   * Pass the ref returned by `useNavigationContainerRef()` (expo-router)
+   * or the `ref` prop on `<NavigationContainer>`.
+   *
+   * If omitted, the component will try to import
    * `useNavigationContainerRef` from `@react-navigation/native` at
    * render-time.  This works when the tracker is rendered **inside** a
    * `<NavigationContainer>`.
@@ -89,20 +113,32 @@ export interface NavigationTrackerProps {
 }
 
 /**
- * Drop-in component that tracks **all** navigation events
- * (back button, swipe-back gesture, programmatic navigation, tab
- * switches) and emits them onto the tracking bus so they are captured
- * as part of the session.
+ * Renderless component that tracks **all** navigation events and emits
+ * them onto the internal tracking bus.
  *
- * Place it **inside** a `<SessionCaptureProvider>` and inside (or next
- * to) the navigator:
+ * It automatically detects:
+ * - Programmatic navigation (`router.push()`, `navigation.navigate()`)
+ * - Back-button presses
+ * - iOS swipe-back gestures
+ * - Tab switches
+ * - `replace` and `popToTop` actions
  *
+ * Each navigation event triggers screenshots before and after the
+ * transition (handled by `SessionCaptureProvider`) so the replay
+ * shows both the departure and arrival screens.
+ *
+ * Place it **inside** a `<SessionCaptureProvider>` and alongside
+ * (or inside) your navigator:
+ *
+ * @example
  * ```tsx
  * <SessionCaptureProvider …>
  *   <Stack />
- *   <NavigationTracker />
+ *   <NavigationTracker navigationRef={navigationRef} />
  * </SessionCaptureProvider>
  * ```
+ *
+ * @see SessionCaptureProvider
  */
 export function NavigationTracker({ navigationRef }: NavigationTrackerProps): null {
   const prevRouteRef = useRef<string | undefined>(undefined);

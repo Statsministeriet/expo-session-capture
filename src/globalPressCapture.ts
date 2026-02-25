@@ -9,9 +9,15 @@ import { emitTrackingEvent, EXPLICIT_HANDLER } from './trackingBus';
 
 // ── Internal helpers ──────────────────────────────────────────────────
 
+/** Symbol used to prevent double-wrapping an `onPress` handler. */
 const ALREADY_PATCHED = Symbol('already-patched');
 
-/** Try to infer a human-readable label from common props. */
+/**
+ * Try to infer a human-readable label from common component props.
+ *
+ * Checks (in order): `accessibilityLabel`, `aria-label`, `testID`.
+ * Returns `undefined` if none are set.
+ */
 function getAccessibilityLabel(props: Record<string, unknown>): string | undefined {
   return (
     (props?.accessibilityLabel as string) ??
@@ -23,7 +29,12 @@ function getAccessibilityLabel(props: Record<string, unknown>): string | undefin
 
 /**
  * Wrap an `onPress` handler so it emits an `auto` tracking event
- * before calling the original handler.
+ * **before** calling the original handler.
+ *
+ * Skips wrapping if:
+ * - The handler is already patched (`ALREADY_PATCHED` symbol).
+ * - The handler was created by `<TrackedPressable>` (`EXPLICIT_HANDLER`
+ *   symbol) — prevents duplicate events.
  */
 function wrapOnPress(
   originalOnPress: ((e: GestureResponderEvent) => void),
@@ -61,13 +72,21 @@ let installed = false;
 
 /**
  * Monkey-patches `React.createElement` to automatically intercept
- * `onPress` on all pressable components (`Pressable`, `TouchableOpacity`,
- * `TouchableHighlight`).
+ * `onPress` on all pressable components:
  *
- * Handlers already created by `TrackedPressable` are skipped so there
- * are never duplicate events.
+ * - `Pressable`
+ * - `TouchableOpacity`
+ * - `TouchableHighlight`
  *
- * Safe to call multiple times – only patches once.
+ * Labels are inferred from `accessibilityLabel`, `aria-label`, or
+ * `testID`.  Handlers created by `<TrackedPressable>` are
+ * automatically skipped so there are **never** duplicate events.
+ *
+ * Called automatically by `<SessionCaptureProvider>` when
+ * `enableGlobalPressCapture` is `true` (the default).  Safe to call
+ * multiple times — only patches once.
+ *
+ * @see TrackedPressable — for explicit, labelled tap tracking.
  */
 export function installGlobalPressCapture(): void {
   if (installed) return;

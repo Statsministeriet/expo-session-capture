@@ -10,6 +10,10 @@ Captures low-resolution screenshots, taps, scrolls, and screen navigations with 
 
 > **See it in action →** Check out the [demo app](https://github.com/Statsministeriet/expo-session-capture-demo) for a fully working example that exercises every SDK feature.
 
+<p align="center">
+  <img src="demo.gif" alt="Expo Session Capture demo" width="600" />
+</p>
+
 ---
 
 ## Table of Contents
