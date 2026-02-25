@@ -1,8 +1,10 @@
 import React, {
   createContext,
+  useCallback,
   useEffect,
   useMemo,
   useRef,
+  useState,
 } from 'react';
 import { AppState, Dimensions, Platform, View } from 'react-native';
 import Constants from 'expo-constants';
@@ -61,18 +63,36 @@ export interface SessionCaptureProviderProps extends SessionCaptureConfig {
 export function SessionCaptureProvider({
   children,
   userId,
-  uploadUrl,
+  apiKey,
+  endpointUrl,
   samplingRate = 0.1,
-  maxFrames = 30,
-  throttleMs = 400,
-  imageQuality = 0.3,
+  maxFrames = 500,
+  throttleMs = 200,
+  imageQuality = 0.1,
   imageWidth = Dimensions.get('window').width,
   imageHeight = Dimensions.get('window').height,
-  uploadHeaders,
+  flushIntervalMs = 10_000,
+  periodicCaptureMs = 1000,
+  idleTimeoutMs = 10_000,
   enableGlobalPressCapture = true,
 }: SessionCaptureProviderProps) {
   const rootRef = useRef<View>(null);
   const sessionId = useMemo(() => uuid(), []);
+
+  // ── Anonymous / identified user ID ─────────────────────────────────
+  const anonymousId = useMemo(() => `anon-${uuid()}`, []);
+  const [currentUserId, setCurrentUserId] = useState<string>(
+    userId ?? anonymousId,
+  );
+  const [isAnonymous, setIsAnonymous] = useState<boolean>(!userId);
+
+  // Sync if the parent passes a new userId prop.
+  useEffect(() => {
+    if (userId) {
+      setCurrentUserId(userId);
+      setIsAnonymous(false);
+    }
+  }, [userId]);
 
   // ── Install global press capture (once, synchronously) ─────────────
   useMemo(() => {
@@ -83,16 +103,17 @@ export function SessionCaptureProvider({
   }, []);
 
   const isActive = useMemo(
-    () => shouldSample(userId, samplingRate),
-    [userId, samplingRate],
+    () => shouldSample(currentUserId, samplingRate),
+    [currentUserId, samplingRate],
   );
 
   const manager = useMemo(
     () =>
       new CaptureManager({
         sessionId,
-        userId,
-        uploadUrl,
+        userId: currentUserId,
+        endpointUrl,
+        apiKey,
         maxFrames,
         throttleMs,
         imageQuality,
@@ -100,7 +121,9 @@ export function SessionCaptureProvider({
         imageHeight,
         device: getDeviceName(),
         appVersion: getAppVersion(),
-        uploadHeaders,
+        flushIntervalMs,
+        periodicCaptureMs,
+        idleTimeoutMs,
       }),
     // Intentionally created once per mount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -115,13 +138,51 @@ export function SessionCaptureProvider({
       deviceHeight: height,
     });
 
-    if (isActive) manager.start();
+    if (isActive) {
+      manager.start();
+
+      // Take an initial screenshot once the first frame has rendered.
+      const initialTimer = setTimeout(() => {
+        manager.captureImmediate(rootRef).catch(() => {});
+        // Start periodic background captures after the initial one.
+        manager.startPeriodicCapture(rootRef);
+      }, 500);
+
+      return () => {
+        clearTimeout(initialTimer);
+        manager.stop();
+      };
+    }
+
     return () => manager.stop();
   }, [isActive, manager]);
 
   // ── Bridge tracking bus → CaptureManager ──────────────────────────
   useEffect(() => {
     const unsubscribe = onTrackingEvent((event: TrackingEvent) => {
+      if (event.type === 'navigation') {
+        // Screenshot BEFORE navigation (capture departure screen).
+        manager.captureImmediate(rootRef).catch(() => {});
+
+        manager.registerNavigation({
+          timestamp: event.timestamp,
+          from: event.fromScreen,
+          to: event.screen,
+          trigger: event.navigationTrigger ?? 'unknown',
+        });
+
+        // Screenshot AFTER navigation with increasing delays so the
+        // new screen is fully rendered (animations, data loading, etc.).
+        setTimeout(() => {
+          manager.captureImmediate(rootRef).catch(() => {});
+        }, 200);
+        setTimeout(() => {
+          manager.captureImmediate(rootRef).catch(() => {});
+        }, 600);
+        return;
+      }
+
+      // Press events
       if (!event.coordinates) return;
 
       manager.registerTap({
@@ -134,8 +195,13 @@ export function SessionCaptureProvider({
         source: event.source,
       });
 
-      // Fire-and-forget screenshot – never block the UI.
-      manager.capture(rootRef).catch(() => {});
+      // Screenshot immediately on tap (captures the pressed state).
+      manager.captureImmediate(rootRef).catch(() => {});
+
+      // And a follow-up to capture the result of the tap.
+      setTimeout(() => {
+        manager.capture(rootRef).catch(() => {});
+      }, 300);
     });
 
     return unsubscribe;
@@ -152,9 +218,24 @@ export function SessionCaptureProvider({
     return () => subscription.remove();
   }, [manager]);
 
+  // ── Identify API ───────────────────────────────────────────────────
+  const identify = useCallback(
+    (newUserId: string) => {
+      setCurrentUserId(newUserId);
+      setIsAnonymous(false);
+      manager.setUserId(newUserId);
+    },
+    [manager],
+  );
+
+  // Keep manager in sync when currentUserId changes (e.g. from prop).
+  useEffect(() => {
+    manager.setUserId(currentUserId);
+  }, [currentUserId, manager]);
+
   const contextValue = useMemo<CaptureContextValue>(
-    () => ({ manager, rootRef, isActive }),
-    [manager, isActive],
+    () => ({ manager, rootRef, isActive, identify, userId: currentUserId, isAnonymous }),
+    [manager, isActive, identify, currentUserId, isAnonymous],
   );
 
   return (

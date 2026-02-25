@@ -4,11 +4,25 @@ import type { View } from 'react-native';
 // ── Config ──────────────────────────────────────────────────────────────
 
 export interface SessionCaptureConfig {
-  /** Unique user identifier – used for deterministic sampling. */
-  userId: string;
+  /**
+   * Unique user identifier – used for deterministic sampling.
+   * If omitted, an anonymous UUID is generated automatically.
+   * Call `identify(userId)` later to associate the session with a real user.
+   */
+  userId?: string;
 
-  /** Backend endpoint that receives the frame batch. */
-  uploadUrl: string;
+  /**
+   * API key obtained from the SessionCapture dashboard.
+   * Used to authenticate uploads and associate sessions with your organisation.
+   */
+  apiKey: string;
+
+  /**
+   * Base URL of your SessionCapture backend
+   * (e.g. "https://api.sessioncapture.io").
+   * The SDK appends `/ingest` automatically.
+   */
+  endpointUrl: string;
 
   /**
    * Fraction of users that will be sampled (0–1).
@@ -18,13 +32,13 @@ export interface SessionCaptureConfig {
 
   /**
    * Hard cap on screenshots per session.
-   * @default 30
+   * @default 500
    */
   maxFrames?: number;
 
   /**
    * Minimum milliseconds between two captures.
-   * @default 400
+   * @default 200
    */
   throttleMs?: number;
 
@@ -47,9 +61,27 @@ export interface SessionCaptureConfig {
   imageHeight?: number;
 
   /**
-   * Optional extra headers for the upload request.
+   * Interval in milliseconds for automatic periodic flushing.
+   * @default 10000
    */
-  uploadHeaders?: Record<string, string>;
+  flushIntervalMs?: number;
+
+  /**
+   * Interval in milliseconds for periodic background screenshots.
+   * Set to `0` to disable periodic capture.
+   * @default 1000
+   */
+  periodicCaptureMs?: number;
+
+  /**
+   * Milliseconds of user inactivity after which periodic screenshots
+   * are paused.  Captures resume automatically when the user interacts
+   * again (tap, scroll, or navigation).
+   *
+   * Set to `0` to disable idle detection (screenshots run forever).
+   * @default 10000
+   */
+  idleTimeoutMs?: number;
 }
 
 // ── Frame ───────────────────────────────────────────────────────────────
@@ -80,7 +112,7 @@ export interface TapEvent {
 // ── Tracking event (central bus) ────────────────────────────────────────
 
 export interface TrackingEvent {
-  type: 'press';
+  type: 'press' | 'navigation';
   timestamp: number;
   /** Human-readable label – inferred from accessibilityLabel or set explicitly. */
   label?: string;
@@ -96,6 +128,21 @@ export interface TrackingEvent {
   coordinates?: { x: number; y: number };
   /** Screen / route name. */
   screen?: string;
+  /** Route the user navigated away from (navigation events only). */
+  fromScreen?: string;
+  /** How the navigation was triggered (navigation events only). */
+  navigationTrigger?: NavigationEvent['trigger'];
+}
+
+export interface NavigationEvent {
+  /** Unix timestamp (ms) when the navigation occurred. */
+  timestamp: number;
+  /** Route the user navigated away from. */
+  from?: string;
+  /** Route the user navigated to. */
+  to?: string;
+  /** How the navigation was triggered. */
+  trigger: 'back-button' | 'swipe-back' | 'tab' | 'push' | 'pop' | 'replace' | 'unknown';
 }
 
 export interface ScrollEvent {
@@ -120,6 +167,7 @@ export interface UploadPayload {
   frames: CapturedFrame[];
   taps: TapEvent[];
   scrolls: ScrollEvent[];
+  navigations: NavigationEvent[];
 }
 
 // ── Context value ───────────────────────────────────────────────────────
@@ -133,4 +181,19 @@ export interface CaptureContextValue {
 
   /** Whether capture is active for this user. */
   isActive: boolean;
+
+  /**
+   * Associate the current session with a known user.
+   *
+   * Call this after the user logs in to replace the anonymous
+   * identifier with their real user ID.  The new ID is used for
+   * all subsequent uploads within the same session.
+   */
+  identify: (userId: string) => void;
+
+  /** The current user ID (anonymous or identified). */
+  userId: string;
+
+  /** Whether the current user ID is anonymous (auto-generated). */
+  isAnonymous: boolean;
 }

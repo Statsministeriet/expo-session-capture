@@ -1,24 +1,31 @@
 {
   "name": "expo-session-capture",
-  "version": "0.1.0",
-  "description": "Sampled visual session capture for Expo managed apps. Captures low-res screenshots on press events with deterministic sampling, throttle, and batch upload.",
-  "main": "src/index.ts",
+  "version": "1.0.0",
+  "description": "Plug-and-play visual session capture for Expo / React Native apps. Captures low-res screenshots, taps, and scrolls with deterministic sampling and batch upload.",
+  "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
     "dist",
-    "src"
+    "README.md"
   ],
   "scripts": {
     "build": "tsc",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build",
+    "clean": "rm -rf dist"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-org/expo-session-capture"
   },
   "keywords": [
     "expo",
     "react-native",
     "session-capture",
+    "session-replay",
     "screenshot",
     "analytics",
-    "ux-research"
+    "ux-research",
+    "heatmap"
   ],
   "license": "MIT",
   "peerDependencies": {
@@ -26,7 +33,13 @@
     "react-native": ">=0.70.0",
     "react-native-view-shot": ">=3.0.0",
     "expo-constants": ">=14.0.0",
-    "expo-device": ">=5.0.0"
+    "expo-device": ">=5.0.0",
+    "@react-navigation/native": ">=6.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@react-navigation/native": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@types/react": "^19.0.0",

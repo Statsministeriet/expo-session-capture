@@ -12,6 +12,8 @@ export {
 } from './TrackedScrollView';
 export type { TrackedScrollViewProps } from './TrackedScrollView';
 
+export { NavigationTracker } from './NavigationTracker';
+
 export { useSessionCapture } from './useSessionCapture';
 
 export { shouldSample } from './sampler';
@@ -27,6 +29,7 @@ export type {
   CapturedFrame,
   TapEvent,
   ScrollEvent,
+  NavigationEvent,
   DeviceInfo,
   UploadPayload,
   CaptureContextValue,

@@ -1,15 +1,15 @@
 # expo-session-capture
 
-Sampled visual session capture for **Expo managed** apps.
+Plug-and-play visual session capture for **Expo / React Native** apps.
 
-Captures low-resolution screenshots on press events with deterministic sampling, throttle, hard frame cap, and batch upload – without any native code.
+Captures low-resolution screenshots, taps, and scrolls with deterministic sampling, throttle, hard frame cap, periodic flush, and automatic background flush – without any native code.
 
 ---
 
 ## Install
 
 ```bash
-npx expo install react-native-view-shot
+npx expo install react-native-view-shot expo-constants expo-device
 npm install expo-session-capture
 ```
 
@@ -19,7 +19,11 @@ npm install expo-session-capture
 
 ## Quick start
 
-### 1. Wrap your app
+### 1. Get your API key
+
+Sign up at [sessioncapture.io](https://sessioncapture.io) and create an organisation. Copy your API key from the dashboard.
+
+### 2. Wrap your app
 
 ```tsx
 import { SessionCaptureProvider } from 'expo-session-capture';
@@ -28,9 +32,10 @@ export default function App() {
   return (
     <SessionCaptureProvider
       userId={user.id}
-      uploadUrl="https://api.example.com/session-upload"
-      samplingRate={0.1}   // 10 % of users
-      maxFrames={30}       // hard cap per session
+      apiKey="sc_live_xxxxxxxxxxxxx"
+      endpointUrl="https://api.sessioncapture.io"
+      samplingRate={0.1} // 10 % of users
+      maxFrames={30}     // hard cap per session
     >
       <Navigation />
     </SessionCaptureProvider>
@@ -38,131 +43,58 @@ export default function App() {
 }
 ```
 
-### 2. Use `TrackedPressable`
+That's it! Sessions are automatically captured and uploaded.
 
-Replace `Pressable` with `TrackedPressable` on buttons you want to track:
+### 3. (Optional) Use `TrackedPressable` for richer data
 
 ```tsx
 import { TrackedPressable } from 'expo-session-capture';
 
-<TrackedPressable onPress={handlePress}>
+<TrackedPressable
+  trackingLabel="Buy now"
+  trackingCategory="conversion"
+  tapScreen="ProductScreen"
+  onPress={handlePress}
+>
   <Text>Buy now</Text>
 </TrackedPressable>
 ```
 
-**That's it.** No other integration needed.
-
-### 3. Use `TrackedScrollView` for scroll-aware captures
-
-Use `TrackedScrollView` where you want scroll-position changes represented in replay.
-It tracks offset during scroll, but only attempts capture when scrolling ends:
-
-- `onMomentumScrollEnd` (primary)
-- `onScrollEndDrag` (fallback)
+### 4. (Optional) Track scroll-heavy screens
 
 ```tsx
 import { TrackedScrollView } from 'expo-session-capture';
 
 <TrackedScrollView scrollThreshold={200}>
-  {content}
+  {/* long list content */}
 </TrackedScrollView>
 ```
 
-`scrollThreshold` defaults to `200` (pixels, vertical `contentOffset.y` delta).
-Small scroll movements below the threshold are ignored.
-
 ---
 
-## Props
-
-### `SessionCaptureProvider`
+## Configuration
 
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
-| `userId` | `string` | *required* | Stable user ID for deterministic sampling |
-| `uploadUrl` | `string` | *required* | Backend endpoint that receives frame batches |
-| `samplingRate` | `number` | `0.1` | Fraction of users captured (0–1) |
-| `maxFrames` | `number` | `30` | Max screenshots per session |
-| `throttleMs` | `number` | `400` | Min interval between captures (ms) |
+| `userId` | `string` | — | Stable user identifier for deterministic sampling |
+| `apiKey` | `string` | — | API key from your SessionCapture dashboard |
+| `endpointUrl` | `string` | — | Base URL of your SessionCapture backend |
+| `samplingRate` | `number` | `0.1` | Fraction of users to sample (0–1) |
+| `maxFrames` | `number` | `30` | Hard cap on screenshots per session |
+| `throttleMs` | `number` | `400` | Minimum ms between captures |
 | `imageQuality` | `number` | `0.3` | JPEG quality (0–1) |
-| `imageWidth` | `number` | `360` | Screenshot width (px) |
-| `imageHeight` | `number` | `640` | Screenshot height (px) |
-| `uploadHeaders` | `Record<string, string>` | – | Extra headers for upload requests |
-
-### `TrackedPressable`
-
-Drop-in replacement for React Native's `<Pressable>`. Same props, same behaviour – plus automatic screenshot on press.
-
-### `TrackedScrollView`
-
-Drop-in replacement for React Native's `<ScrollView>`.
-
-- Never captures in `onScroll`
-- Only attempts capture on scroll end callbacks
-- Only attempts capture if vertical offset delta exceeds `scrollThreshold`
-- Still respects manager sampling, throttle, active state, and max frame cap
+| `flushIntervalMs` | `number` | `10000` | Periodic flush interval in ms |
+| `enableGlobalPressCapture` | `boolean` | `true` | Auto-capture all Pressable taps |
 
 ---
 
 ## How it works
 
-1. **Sampling** – `shouldSample(userId, rate)` deterministically hashes the user ID. The same user is always either captured or not, ensuring consistent experience across sessions.
-
-2. **Capture** – On every `TrackedPressable` press, the root `<View>` is screenshotted via `react-native-view-shot` (low-res JPEG, base-64).
-
-3. **Throttle** – At most one capture per 400 ms (configurable).
-
-4. **Hard cap** – After `maxFrames` captures, the session stops recording and flushes.
-
-5. **Upload** – Frames are batch-uploaded as JSON to your endpoint on:
-   - `maxFrames` reached
-   - App going to background
-   - Session end (provider unmount)
-
----
-
-## Backend payload
-
-```json
-{
-  "sessionId": "a1b2c3d4-...",
-  "userId": "user_42",
-  "device": "iPhone 15 Pro",
-  "appVersion": "1.2.3",
-  "frames": [
-    {
-      "timestamp": 1700000000000,
-      "image": "/9j/4AAQ..."
-    }
-  ]
-}
-```
-
----
-
-## Hooks
-
-### `useSessionCapture()`
-
-Access the capture context from any component inside the provider:
-
-```tsx
-import { useSessionCapture } from 'expo-session-capture';
-
-const { manager, rootRef, isActive } = useSessionCapture();
-```
-
-Useful for manual capture triggers or checking sampling status.
-
----
-
-## Expo compliance
-
-- No native modules
-- Only peer-dep on `react-native-view-shot` (Expo-compatible)
-- Works in managed workflow
-- No config plugins
-- No custom build required
+- **Deterministic sampling**: same user always sampled or not based on `userId`
+- **Global press capture**: monkey-patches `React.createElement` to intercept all `Pressable`/`TouchableOpacity`/`TouchableHighlight` presses
+- **Periodic flush**: uploads buffered data every 10 seconds (configurable)
+- **Background flush**: automatically flushes when the app moves to background or becomes inactive
+- **Non-blocking**: all capture and upload operations are fire-and-forget; never crashes your app
 
 ---
 
