@@ -1,4 +1,4 @@
-# expo-session-capture
+# Expo Session Capture
 
 Plug-and-play visual session capture for **Expo / React Native** apps.
 
