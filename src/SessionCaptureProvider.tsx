@@ -17,10 +17,19 @@ import type { CaptureContextValue, SessionCaptureConfig, TrackingEvent } from '.
 
 // ── Context ───────────────────────────────────────────────────────────
 
+/**
+ * React context that holds the {@link CaptureContextValue}.
+ *
+ * Consumers should use the {@link useSessionCapture} hook instead of
+ * accessing this context directly.
+ *
+ * @internal
+ */
 export const CaptureContext = createContext<CaptureContextValue | null>(null);
 
 // ── Simple UUID v4 (no native dep) ───────────────────────────────────
 
+/** Generate a random UUID v4 without any native dependency. */
 function uuid(): string {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
     const r = (Math.random() * 16) | 0;
@@ -31,11 +40,13 @@ function uuid(): string {
 
 // ── Device info helpers ──────────────────────────────────────────────
 
+/** Return a human-readable device name (e.g. `"iPhone 15 Pro"`). */
 function getDeviceName(): string {
   if (Device.modelName) return Device.modelName;
   return `${Platform.OS}-${Platform.Version}`;
 }
 
+/** Return the app version from Expo constants, falling back to `'0.0.0'`. */
 function getAppVersion(): string {
   return (
     Constants.expoConfig?.version ??
@@ -46,20 +57,63 @@ function getAppVersion(): string {
 
 // ── Provider ─────────────────────────────────────────────────────────
 
+/**
+ * Props for `<SessionCaptureProvider>`.
+ *
+ * Extends {@link SessionCaptureConfig} with `children` and
+ * `enableGlobalPressCapture`.
+ */
 export interface SessionCaptureProviderProps extends SessionCaptureConfig {
   children: React.ReactNode;
 
   /**
    * When `true` (default), all `Pressable` / `TouchableOpacity` /
-   * `TouchableHighlight` presses are captured automatically via a
-   * global `React.createElement` patch.  `TrackedPressable` events
-   * are never duplicated.
+   * `TouchableHighlight` presses are captured **automatically** via a
+   * global `React.createElement` patch.
+   *
+   * Events from `<TrackedPressable>` are never duplicated — the
+   * global layer skips handlers marked as explicit.
+   *
+   * Set to `false` if you only want to track presses through
+   * `<TrackedPressable>` explicitly.
    *
    * @default true
    */
   enableGlobalPressCapture?: boolean;
 }
 
+/**
+ * Root provider for Expo Session Capture.
+ *
+ * Wrap your entire app (or the subtree you want to capture) in this
+ * component.  It handles:
+ *
+ * 1. **Deterministic sampling** — decides whether this user is
+ *    captured based on `userId` + `samplingRate`.
+ * 2. **Screenshot capture** — takes periodic and interaction-driven
+ *    screenshots of the root `<View>` via `react-native-view-shot`.
+ * 3. **Event recording** — subscribes to the internal tracking bus
+ *    to buffer taps, scrolls, and navigation events.
+ * 4. **Batch upload** — flushes buffered data to
+ *    `{endpointUrl}/ingest` on a timer and when the app backgrounds.
+ * 5. **Identity** — provides the `identify()` API to link anonymous
+ *    sessions to real users after login.
+ *
+ * @example
+ * ```tsx
+ * <SessionCaptureProvider
+ *   apiKey="sc_live_xxxxxxxxxxxxx"
+ *   endpointUrl="https://api.sessioncapture.io"
+ *   samplingRate={0.1}
+ * >
+ *   <Stack />
+ *   <NavigationTracker navigationRef={navigationRef} />
+ * </SessionCaptureProvider>
+ * ```
+ *
+ * @see useSessionCapture — hook to access context values from child components.
+ * @see NavigationTracker — companion component for tracking screen transitions.
+ */
 export function SessionCaptureProvider({
   children,
   userId,

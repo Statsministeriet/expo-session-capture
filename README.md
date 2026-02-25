@@ -1,5 +1,7 @@
 # Expo Session Capture
 
+> **🚧 BETA** — This product is currently in beta. [Request early access](https://www.server-less.com/en/contact/) to get your API key and start capturing sessions.
+
 Plug-and-play visual session capture for **Expo / React Native** apps.
 
 Captures low-resolution screenshots, taps, scrolls, and screen navigations with deterministic sampling, throttle, hard frame cap, periodic flush, idle detection, and automatic background flush — **without any native code**.
@@ -42,7 +44,7 @@ npm install expo-session-capture
 
 ### 1. Get your API key
 
-Sign up at [sessioncapture.io](https://sessioncapture.io) and create an organisation. Copy your API key from the dashboard.
+Expo Session Capture is currently in **beta**. To get your API key, [request early access](https://www.server-less.com/en/contact/) and we'll set you up with an organisation and credentials.
 
 ### 2. Wrap your app in `SessionCaptureProvider`
 
@@ -57,7 +59,7 @@ export default function RootLayout() {
   return (
     <SessionCaptureProvider
       apiKey="sc_live_xxxxxxxxxxxxx"
-      endpointUrl="https://api.sessioncapture.io"
+      endpointUrl="https://api.server-less.com"
       samplingRate={0.1}   // capture 10 % of users
     >
       <Stack />
@@ -361,7 +363,7 @@ export default function RootLayout() {
   return (
     <SessionCaptureProvider
       apiKey="sc_live_xxxxxxxxxxxxx"
-      endpointUrl="https://api.sessioncapture.io"
+      endpointUrl="https://api.server-less.com"
     >
       <Stack />
       <NavigationTracker navigationRef={navigationRef} />
@@ -375,7 +377,7 @@ export default function RootLayout() {
 ```tsx
 <SessionCaptureProvider
   apiKey="sc_live_xxxxxxxxxxxxx"
-  endpointUrl="https://api.sessioncapture.io"
+  endpointUrl="https://api.server-less.com"
   userId={currentUser?.id}          // sampled deterministically
   samplingRate={0.25}               // 25 % of users
   maxFrames={200}
