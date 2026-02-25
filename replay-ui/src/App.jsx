@@ -1,18 +1,11 @@
-import { useEffect, useMemo, useState, useRef, useCallback } from 'react'
-import { buildHeatmap } from './heatmap/HeatmapEngine'
-import { HeatmapCanvas } from './heatmap/HeatmapCanvas'
-import { HeatmapLegend } from './heatmap/HeatmapLegend.jsx'
+import { useEffect, useState, useRef, useCallback } from 'react'
 
 const API = 'http://localhost:3001'
 const REPLAY_WIDTH = 360
 const TAP_FADE_MS = 600
 
 export default function App() {
-  const [mode, setMode] = useState('replay')
   const [sessions, setSessions] = useState([])
-  const [heatmapSessions, setHeatmapSessions] = useState([])
-  const [selectedScreen, setSelectedScreen] = useState('')
-  const [selectedVersion, setSelectedVersion] = useState('')
   const [current, setCurrent] = useState(null)
   const [frameIdx, setFrameIdx] = useState(0)
   const [playing, setPlaying] = useState(false)
@@ -28,87 +21,6 @@ export default function App() {
       .then(setSessions)
       .catch(() => {})
   }, [])
-
-  useEffect(() => {
-    if (!sessions.length) {
-      setHeatmapSessions([])
-      return
-    }
-
-    let cancelled = false
-
-    Promise.all(
-      sessions.map((session) =>
-        fetch(`${API}/sessions/${session.id}`)
-          .then((response) => response.json())
-          .catch(() => null),
-      ),
-    )
-      .then((data) => {
-        if (cancelled) return
-
-        const filtered = data.filter(Boolean)
-        setHeatmapSessions(filtered)
-      })
-      .catch(() => {
-        if (cancelled) return
-        setHeatmapSessions([])
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [sessions])
-
-  const availableVersions = useMemo(() => {
-    const versions = new Set()
-
-    heatmapSessions.forEach((session) => {
-      if (session?.appVersion) versions.add(session.appVersion)
-    })
-
-    return Array.from(versions)
-  }, [heatmapSessions])
-
-  const availableScreens = useMemo(() => {
-    const screens = new Set()
-
-    heatmapSessions.forEach((session) => {
-      ;(session?.taps || []).forEach((tap) => {
-        if (tap?.screen) screens.add(tap.screen)
-      })
-    })
-
-    return Array.from(screens)
-  }, [heatmapSessions])
-
-  useEffect(() => {
-    if (!availableVersions.length) {
-      setSelectedVersion('')
-      return
-    }
-
-    setSelectedVersion((prev) => (prev && availableVersions.includes(prev) ? prev : availableVersions[0]))
-  }, [availableVersions])
-
-  useEffect(() => {
-    if (!availableScreens.length) {
-      setSelectedScreen('')
-      return
-    }
-
-    setSelectedScreen((prev) => (prev && availableScreens.includes(prev) ? prev : availableScreens[0]))
-  }, [availableScreens])
-
-  const heatmapPoints = useMemo(() => {
-    if (!selectedScreen || !selectedVersion) return []
-
-    return buildHeatmap({
-      sessions: heatmapSessions,
-      screen: selectedScreen,
-      appVersion: selectedVersion,
-    })
-  }, [heatmapSessions, selectedScreen, selectedVersion])
 
   // ── Load a single session ─────────────────────────────────────────
 
@@ -305,27 +217,6 @@ export default function App() {
       <div style={styles.sidebar}>
         <h2 style={styles.heading}>Sessions</h2>
 
-        <div style={styles.modeWrap}>
-          <button
-            onClick={() => setMode('replay')}
-            style={{
-              ...styles.modeBtn,
-              ...(mode === 'replay' ? styles.modeBtnActive : {}),
-            }}
-          >
-            Replay
-          </button>
-          <button
-            onClick={() => setMode('heatmap')}
-            style={{
-              ...styles.modeBtn,
-              ...(mode === 'heatmap' ? styles.modeBtnActive : {}),
-            }}
-          >
-            Heatmap
-          </button>
-        </div>
-
         {sessions.length === 0 && (
           <p style={styles.empty}>No sessions yet. Run the app to capture some.</p>
         )}
@@ -348,57 +239,7 @@ export default function App() {
       </div>
 
       <div style={styles.main}>
-        {mode === 'heatmap' ? (
-          <>
-            <div style={styles.heatmapControls}>
-              <label style={styles.heatmapSelectWrap}>
-                Screen
-                <select
-                  value={selectedScreen}
-                  onChange={(e) => setSelectedScreen(e.target.value)}
-                  style={styles.heatmapSelect}
-                >
-                  {availableScreens.map((screen) => (
-                    <option key={screen} value={screen}>
-                      {screen}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label style={styles.heatmapSelectWrap}>
-                Version
-                <select
-                  value={selectedVersion}
-                  onChange={(e) => setSelectedVersion(e.target.value)}
-                  style={styles.heatmapSelect}
-                >
-                  {availableVersions.map((version) => (
-                    <option key={version} value={version}>
-                      {version}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-
-            <div style={styles.heatmapMeta}>
-              <span><strong>Sessions:</strong> {heatmapSessions.length}</span>
-              <span><strong>Points:</strong> {heatmapPoints.length}</span>
-            </div>
-
-            {!selectedScreen || !selectedVersion ? (
-              <p style={styles.placeholder}>No heatmap data with screen/version yet.</p>
-            ) : (
-              <>
-                <div style={styles.heatmapCanvasWrap}>
-                  <HeatmapCanvas points={heatmapPoints} width={360} height={640} />
-                </div>
-                <HeatmapLegend pointsCount={heatmapPoints.length} />
-              </>
-            )}
-          </>
-        ) : !current ? (
+        {!current ? (
           <p style={styles.placeholder}>← Select a session</p>
         ) : (
           <>
@@ -535,26 +376,6 @@ const styles = {
     color: '#999',
     fontSize: 13,
   },
-  modeWrap: {
-    display: 'flex',
-    gap: 8,
-    marginBottom: 12,
-  },
-  modeBtn: {
-    flex: 1,
-    padding: '7px 10px',
-    border: '1px solid #d0d0d0',
-    borderRadius: 6,
-    background: '#fff',
-    cursor: 'pointer',
-    fontSize: 13,
-    fontWeight: 600,
-  },
-  modeBtnActive: {
-    background: '#e8f0fe',
-    borderColor: '#4285f4',
-    color: '#2458b8',
-  },
   sessionBtn: {
     display: 'block',
     width: '100%',
@@ -606,40 +427,6 @@ const styles = {
     alignItems: 'center',
     gap: 12,
     marginBottom: 16,
-  },
-  heatmapControls: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: 12,
-  },
-  heatmapSelectWrap: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-    fontSize: 13,
-    color: '#555',
-  },
-  heatmapSelect: {
-    border: '1px solid #ccc',
-    borderRadius: 6,
-    padding: '6px 10px',
-    fontSize: 13,
-    background: '#fff',
-    minWidth: 180,
-  },
-  heatmapMeta: {
-    display: 'flex',
-    gap: 20,
-    marginBottom: 12,
-    fontSize: 13,
-  },
-  heatmapCanvasWrap: {
-    border: '1px solid #ddd',
-    borderRadius: 8,
-    overflow: 'hidden',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-    background: '#fff',
   },
   playBtn: {
     padding: '8px 20px',
