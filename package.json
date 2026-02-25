@@ -1,53 +1,37 @@
 {
   "name": "expo-session-capture",
   "version": "1.0.0",
-  "description": "Plug-and-play visual session capture for Expo / React Native apps. Captures low-res screenshots, taps, and scrolls with deterministic sampling and batch upload.",
+  "description": "Plug-and-play visual session capture for Expo / React Native apps",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "files": [
-    "dist",
-    "README.md"
-  ],
   "scripts": {
     "build": "tsc",
-    "prepublishOnly": "npm run build",
-    "clean": "rm -rf dist"
+    "prepublishOnly": "npm run build"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/your-org/expo-session-capture"
+    "url": "git+https://github.com/Statsministeriet/expo-session-capture.git"
   },
+  "homepage": "https://github.com/Statsministeriet/expo-session-capture",
+  "license": "MIT",
   "keywords": [
     "expo",
+    "session",
+    "capture",
     "react-native",
-    "session-capture",
     "session-replay",
-    "screenshot",
-    "analytics",
-    "ux-research",
-    "heatmap"
+    "analytics"
   ],
-  "license": "MIT",
+  "files": [
+    "dist",
+    "src",
+    "README.md"
+  ],
   "peerDependencies": {
-    "react": ">=17.0.0",
-    "react-native": ">=0.70.0",
-    "react-native-view-shot": ">=3.0.0",
-    "expo-constants": ">=14.0.0",
+    "react": ">=18.0.0",
+    "react-native": ">=0.72.0",
     "expo-device": ">=5.0.0",
-    "@react-navigation/native": ">=6.0.0"
-  },
-  "peerDependenciesMeta": {
-    "@react-navigation/native": {
-      "optional": true
-    }
-  },
-  "devDependencies": {
-    "@types/react": "^19.0.0",
-    "typescript": "^5.3.0",
-    "react": "^19.0.0",
-    "react-native": ">=0.76.0",
-    "react-native-view-shot": ">=3.0.0",
-    "expo-constants": ">=17.0.0",
-    "expo-device": ">=7.0.0"
+    "expo-constants": ">=15.0.0",
+    "react-native-view-shot": ">=3.0.0"
   }
 }
